@@ -5,31 +5,35 @@ import path from "path";
 // Helper function to build dynamic, origin-restricted CORS headers
 function getCorsHeaders(requestOrigin: string | null): Record<string, string> {
   const allowedOriginsEnv = process.env.FRAMER_ALLOWED_ORIGINS || "";
-  const allowedOrigins = allowedOriginsEnv
+  const defaultAllowed = [
+    "https://meetrifat.framer.ai",
+    "https://framer.com",
+    "https://framer.app",
+    "https://canvas.framer.app",
+    "https://framerusercontent.com",
+    "https://events.framer.com",
+    "http://localhost:3000",
+  ];
+  const envOrigins = allowedOriginsEnv
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean);
+  const allowedOrigins = Array.from(new Set([...defaultAllowed, ...envOrigins]));
 
   let matchedOrigin = "";
 
   if (requestOrigin && typeof requestOrigin === "string") {
     const cleanOrigin = requestOrigin.toLowerCase().trim();
-    if (allowedOrigins.includes(requestOrigin) || allowedOrigins.includes(cleanOrigin)) {
+    if (
+      allowedOrigins.includes(requestOrigin) ||
+      allowedOrigins.includes(cleanOrigin) ||
+      cleanOrigin.endsWith(".framer.app") ||
+      cleanOrigin.endsWith(".framer.ai") ||
+      cleanOrigin.endsWith(".framer.com") ||
+      cleanOrigin.endsWith(".framerusercontent.com") ||
+      cleanOrigin.endsWith(".framer.wiki")
+    ) {
       matchedOrigin = requestOrigin;
-    } else {
-      const framerPatterns = [
-        "framer.ai",
-        "framer.app",
-        "framer.com",
-        "framerusercontent.com",
-        "framer.wiki",
-        "localhost",
-        "127.0.0.1",
-      ];
-      const isFramer = framerPatterns.some((pattern) => cleanOrigin.includes(pattern));
-      if (isFramer) {
-        matchedOrigin = requestOrigin;
-      }
     }
   }
 
