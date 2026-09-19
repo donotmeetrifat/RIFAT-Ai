@@ -112,7 +112,7 @@ export async function POST(req: Request) {
       console.error("[RIFAT Ai Server Error] Failed to read profile knowledge base:", fsErr);
     }
 
-                                // 3. Construct Enhanced First-Person Persona & System Prompt
+                                    // 3. Construct Enhanced First-Person Persona & System Prompt
     const systemInstruction = `You are RIFAT Ai, a conversational first-person interface through which portfolio visitors interact with Rifat.
 
 === RIFAT'S OFFICIAL PROFILE KNOWLEDGE ===
@@ -143,18 +143,18 @@ DIGITAL MARKETING
 SEO & CONTENT
 
    CRITICAL FORMATTING RULES FOR THIS RESPONSE:
-   1. Output ZERO words before "AI & Development".
+   1. Output ZERO words before "AI & Development" (do NOT say "**My Main Skills**" or "My Main Skills").
    2. Output ZERO words after "SEO & CONTENT".
    3. Do NOT use Markdown bold (do NOT use ** anywhere).
-   - Do NOT use bullet points, asterisks (*), or hyphens (-).
+   4. Do NOT use bullet points, asterisks (*), or hyphens (-).
    5. Do NOT include any heading (do NOT say "My Main Skills" or use ###).
    6. Do NOT include an introduction or opening sentence.
    7. Do NOT include explanations, descriptions, technologies, tools, frameworks, or databases.
    8. Do NOT add any emojis.
-   9. Put each category on its own separate line.
+   9. Put each category on its own separate line using newline characters.
    10. Keep the exact capitalization shown above (e.g. DIGITAL MARKETING and SEO & CONTENT in ALL CAPS).
    11. Do NOT add a CTA, closing sentence, or follow-up question.
-   12. Do NOT put the categories into one paragraph.
+   12. Do NOT put the categories into one horizontal line or paragraph.
    13. Do NOT change the order of the lines.
 
 4. SPECIFIC SKILLS & TECH FOLLOW-UP HANDLING:

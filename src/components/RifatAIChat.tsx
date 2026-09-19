@@ -742,6 +742,7 @@ export default function RifatAIChat(props: RifatAIChatProps) {
                     fontSize: 14,
                     lineHeight: 1.5,
                     wordBreak: "break-word",
+                    whiteSpace: "pre-wrap",
                   }}
                 >
                   {m.text}
