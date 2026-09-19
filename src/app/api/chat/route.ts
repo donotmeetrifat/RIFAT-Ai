@@ -13,6 +13,7 @@ function getCorsHeaders(requestOrigin: string | null): Record<string, string> {
     "https://framerusercontent.com",
     "https://events.framer.com",
     "http://localhost:3000",
+    "null",
   ];
   const envOrigins = allowedOriginsEnv
     .split(",")
@@ -27,6 +28,7 @@ function getCorsHeaders(requestOrigin: string | null): Record<string, string> {
     if (
       allowedOrigins.includes(requestOrigin) ||
       allowedOrigins.includes(cleanOrigin) ||
+      cleanOrigin === "null" ||
       cleanOrigin.endsWith(".framer.app") ||
       cleanOrigin.endsWith(".framer.ai") ||
       cleanOrigin.endsWith(".framer.com") ||
