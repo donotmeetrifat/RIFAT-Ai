@@ -12,25 +12,23 @@ function getCorsHeaders(requestOrigin: string | null): Record<string, string> {
 
   let matchedOrigin = "";
 
-  if (requestOrigin) {
-    if (allowedOrigins.includes(requestOrigin)) {
+  if (requestOrigin && typeof requestOrigin === "string") {
+    const cleanOrigin = requestOrigin.toLowerCase().trim();
+    if (allowedOrigins.includes(requestOrigin) || allowedOrigins.includes(cleanOrigin)) {
       matchedOrigin = requestOrigin;
     } else {
-      try {
-        const url = new URL(requestOrigin);
-        const host = url.hostname.toLowerCase();
-        if (
-          host === "framer.com" || host.endsWith(".framer.com") ||
-          host === "framer.app" || host.endsWith(".framer.app") ||
-          host === "framer.ai" || host.endsWith(".framer.ai") ||
-          host === "framerusercontent.com" || host.endsWith(".framerusercontent.com") ||
-          host === "framer.wiki" || host.endsWith(".framer.wiki") ||
-          host === "localhost" || host === "127.0.0.1"
-        ) {
-          matchedOrigin = requestOrigin;
-        }
-      } catch (e) {
-        // invalid URL
+      const framerPatterns = [
+        "framer.ai",
+        "framer.app",
+        "framer.com",
+        "framerusercontent.com",
+        "framer.wiki",
+        "localhost",
+        "127.0.0.1",
+      ];
+      const isFramer = framerPatterns.some((pattern) => cleanOrigin.includes(pattern));
+      if (isFramer) {
+        matchedOrigin = requestOrigin;
       }
     }
   }
