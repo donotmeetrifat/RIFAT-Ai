@@ -2,24 +2,79 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
+// Helper function to build dynamic, origin-restricted CORS headers
+function getCorsHeaders(requestOrigin: string | null): Record<string, string> {
+  const allowedOriginsEnv = process.env.FRAMER_ALLOWED_ORIGINS || "";
+  const allowedOrigins = allowedOriginsEnv
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  let matchedOrigin = "";
+
+  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+    matchedOrigin = requestOrigin;
+  }
+
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    Vary: "Origin",
+  };
+
+  if (matchedOrigin) {
+    headers["Access-Control-Allow-Origin"] = matchedOrigin;
+  }
+
+  return headers;
+}
+
+// Helper wrapper to attach CORS headers to all NextResponse responses
+function jsonWithCors(data: any, init?: ResponseInit, requestOrigin?: string | null) {
+  const cors = getCorsHeaders(requestOrigin ?? null);
+  const existingHeaders = (init?.headers as Record<string, string>) || {};
+  return NextResponse.json(data, {
+    ...init,
+    headers: {
+      ...cors,
+      ...existingHeaders,
+    },
+  });
+}
+
+// OPTIONS preflight handler for CORS
+export async function OPTIONS(req: Request) {
+  const requestOrigin = req.headers.get("origin");
+  const headers = getCorsHeaders(requestOrigin);
+
+  return new Response(null, {
+    status: 204,
+    headers,
+  });
+}
+
 export async function POST(req: Request) {
+  const origin = req.headers.get("origin");
+
   try {
     const body = await req.json();
     const { message, history } = body || {};
 
     // 1. Input Validation & Abuse Protection
     if (!message || typeof message !== "string" || !message.trim()) {
-      return NextResponse.json(
+      return jsonWithCors(
         { error: "Message content cannot be empty." },
-        { status: 400 }
+        { status: 400 },
+        origin
       );
     }
 
     const trimmedMessage = message.trim();
     if (trimmedMessage.length > 500) {
-      return NextResponse.json(
+      return jsonWithCors(
         { error: "Message exceeds maximum allowed length of 500 characters." },
-        { status: 400 }
+        { status: 400 },
+        origin
       );
     }
 
@@ -79,9 +134,13 @@ STRICT IDENTITY & BEHAVIOR RULES:
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       console.warn("[RIFAT Ai Server Warning] GEMINI_API_KEY is not configured in server environment.");
-      return NextResponse.json({
-        answer: "I'm currently operating in offline preview mode while server configuration is being finalized. You can reach out to Rifat directly through the portfolio links!"
-      });
+      return jsonWithCors(
+        {
+          answer: "I'm currently operating in offline preview mode while server configuration is being finalized. You can reach out to Rifat directly through the portfolio links!"
+        },
+        { status: 200 },
+        origin
+      );
     }
 
     const primaryModel = process.env.GEMINI_MODEL || "gemini-3.6-flash";
@@ -172,19 +231,25 @@ STRICT IDENTITY & BEHAVIOR RULES:
     }
 
     if (generatedText) {
-      return NextResponse.json({
-        answer: generatedText,
-      });
+      return jsonWithCors(
+        { answer: generatedText },
+        { status: 200 },
+        origin
+      );
     }
 
-    return NextResponse.json({
-      answer: "Looks like I'm having a connection issue right now. You can still reach Rifat directly through the contact links."
-    });
+    return jsonWithCors(
+      { answer: "Looks like I'm having a connection issue right now. You can still reach Rifat directly through the contact links." },
+      { status: 200 },
+      origin
+    );
 
   } catch (error: any) {
     console.error("[RIFAT Ai API Error]", error);
-    return NextResponse.json({
-      answer: "Looks like I'm having a connection issue right now. You can still reach Rifat directly through the contact links."
-    });
+    return jsonWithCors(
+      { answer: "Looks like I'm having a connection issue right now. You can still reach Rifat directly through the contact links." },
+      { status: 500 },
+      origin
+    );
   }
 }
