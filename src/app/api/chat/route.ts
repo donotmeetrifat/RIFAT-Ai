@@ -13,6 +13,7 @@ function getCorsHeaders(requestOrigin: string | null): Record<string, string> {
     "https://framerusercontent.com",
     "https://events.framer.com",
     "http://localhost:3000",
+    "null",
   ];
   const envOrigins = allowedOriginsEnv
     .split(",")
@@ -24,20 +25,17 @@ function getCorsHeaders(requestOrigin: string | null): Record<string, string> {
 
   if (requestOrigin && typeof requestOrigin === "string") {
     const cleanOrigin = requestOrigin.toLowerCase().trim();
-    if (allowedOrigins.includes(requestOrigin) || allowedOrigins.includes(cleanOrigin)) {
-      matchedOrigin = requestOrigin;
-    } else if (
-      cleanOrigin.endsWith(".framer.app") ||
-      cleanOrigin.endsWith(".framer.ai") ||
-      cleanOrigin.endsWith(".framer.com") ||
-      cleanOrigin.endsWith(".framerusercontent.com") ||
-      cleanOrigin.endsWith(".framer.wiki")
+    if (
+      allowedOrigins.includes(requestOrigin) ||
+      allowedOrigins.includes(cleanOrigin) ||
+      cleanOrigin === "null" ||
+      cleanOrigin.includes("framer") ||
+      cleanOrigin.includes("localhost") ||
+      cleanOrigin.includes("127.0.0.1") ||
+      cleanOrigin.startsWith("file://") ||
+      cleanOrigin.startsWith("app://")
     ) {
       matchedOrigin = requestOrigin;
-    } else if (cleanOrigin === "null") {
-      // NOTE: "null" origin compatibility exception specifically for sandboxed Framer preview iframes.
-      // This is a restricted compatibility exception for Framer canvas/preview sandboxes and is not equivalent to a trusted production domain.
-      matchedOrigin = "null";
     }
   }
 
