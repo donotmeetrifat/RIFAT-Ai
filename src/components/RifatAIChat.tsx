@@ -157,8 +157,8 @@ export interface RifatAIChatProps {
 export default function RifatAIChat(props: RifatAIChatProps) {
   const {
     assistantName = "RIFAT Ai",
-    greeting = "Hi, I'm RIFAT Ai",
-    subtitle = "Ask me about Rifat, his work, projects, skills or how he can help.",
+    greeting = "Hey, I'm Rifat!",
+    subtitle = "Ask me about my work, skills, projects, or how we can collaborate.",
     statusLabel = "AI Assistant · online",
     suggestions = [
       { text: "What does Rifat do?" },
@@ -1017,8 +1017,8 @@ export default function RifatAIChat(props: RifatAIChatProps) {
 // Default Framer Component Props
 RifatAIChat.defaultProps = {
   assistantName: "RIFAT Ai",
-  greeting: "Hi, I'm RIFAT Ai",
-  subtitle: "Ask me about Rifat, his work, projects, skills or how he can help.",
+  greeting: "Hey, I'm Rifat!",
+  subtitle: "Ask me about my work, skills, projects, or how we can collaborate.",
   statusLabel: "AI Assistant · online",
   suggestions: [
     { text: "What does Rifat do?" },
