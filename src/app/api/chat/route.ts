@@ -12,8 +12,27 @@ function getCorsHeaders(requestOrigin: string | null): Record<string, string> {
 
   let matchedOrigin = "";
 
-  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
-    matchedOrigin = requestOrigin;
+  if (requestOrigin) {
+    if (allowedOrigins.includes(requestOrigin)) {
+      matchedOrigin = requestOrigin;
+    } else {
+      try {
+        const url = new URL(requestOrigin);
+        const host = url.hostname.toLowerCase();
+        if (
+          host === "framer.com" || host.endsWith(".framer.com") ||
+          host === "framer.app" || host.endsWith(".framer.app") ||
+          host === "framer.ai" || host.endsWith(".framer.ai") ||
+          host === "framerusercontent.com" || host.endsWith(".framerusercontent.com") ||
+          host === "framer.wiki" || host.endsWith(".framer.wiki") ||
+          host === "localhost" || host === "127.0.0.1"
+        ) {
+          matchedOrigin = requestOrigin;
+        }
+      } catch (e) {
+        // invalid URL
+      }
+    }
   }
 
   const headers: Record<string, string> = {
@@ -117,7 +136,7 @@ STRICT IDENTITY & BEHAVIOR RULES:
       for (const item of recentHistory) {
         if (item && typeof item.text === "string" && item.text.trim()) {
           formattedContents.push({
-            role: item.isUser ? "user" : "model",
+            role: (item.isUser === true || item.role === "user" || item.sender === "user") ? "user" : "model",
             parts: [{ text: item.text.trim() }],
           });
         }
