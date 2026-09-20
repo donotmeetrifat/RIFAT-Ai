@@ -17,8 +17,8 @@ export interface RifatAIProps {
     subtitle?: string
     statusLabel?: string
     suggestions?: any
-    theme?: any
-    position?: any
+    theme?: "light" | "dark" | string
+    position?: "bottom-right" | "bottom-left" | string
     bottomOffset?: number
     hideFramerBadge?: boolean
     magnetism?: number
@@ -338,13 +338,48 @@ export default function RifatAI(props: RifatAIProps) {
         },
     ])
     const [currentSuggestions, setCurrentSuggestions] = React.useState<
-        string[]
+        any[]
     >(suggestions && suggestions.length > 0 ? suggestions : DEFAULT_SUGGESTIONS)
     const [input, setInput] = React.useState("")
     const [isLoading, setIsLoading] = React.useState(false)
     const [currentTheme, setCurrentTheme] = React.useState<"light" | "dark">(
-        theme
+        theme as "light" | "dark"
     )
+
+    // Scroll ref for isolating chat panel scroll from host portfolio website
+    const messagesScrollRef = React.useRef<HTMLDivElement | null>(null)
+
+    React.useEffect(() => {
+        const el = messagesScrollRef.current
+        if (!el) return
+
+        const handleWheel = (e: WheelEvent) => {
+            e.stopPropagation()
+            const { scrollTop, scrollHeight, clientHeight } = el
+            const delta = e.deltaY
+            const isUp = delta < 0
+            const isDown = delta > 0
+
+            if (
+                (isUp && scrollTop <= 0) ||
+                (isDown && scrollTop + clientHeight >= scrollHeight - 1)
+            ) {
+                e.preventDefault()
+            }
+        }
+
+        const handleTouchMove = (e: TouchEvent) => {
+            e.stopPropagation()
+        }
+
+        el.addEventListener("wheel", handleWheel, { passive: false })
+        el.addEventListener("touchmove", handleTouchMove, { passive: false })
+
+        return () => {
+            el.removeEventListener("wheel", handleWheel)
+            el.removeEventListener("touchmove", handleTouchMove)
+        }
+    }, [isOpen])
 
     // Drag-to-Scroll & Button Navigation state
     const scrollContainerRef = React.useRef<HTMLDivElement | null>(null)
@@ -354,7 +389,7 @@ export default function RifatAI(props: RifatAIProps) {
     const [hasDragged, setHasDragged] = React.useState(false)
 
     React.useEffect(() => {
-        setCurrentTheme(theme)
+        setCurrentTheme(theme as "light" | "dark")
     }, [theme])
 
     const launcherRef = React.useRef<HTMLDivElement | null>(null)
@@ -507,6 +542,7 @@ export default function RifatAI(props: RifatAIProps) {
             {/* Main Chat Window Card */}
             {isOpen && (
                 <div
+                    onWheel={(e) => e.stopPropagation()}
                     style={{
                         width: "calc(100vw - 32px)",
                         maxWidth: "390px",
@@ -624,7 +660,9 @@ export default function RifatAI(props: RifatAIProps) {
 
                     {/* Messages Scroll Area */}
                     <div
+                        ref={messagesScrollRef}
                         className="rifat-ai-scrollbar"
+                        onWheel={(e) => e.stopPropagation()}
                         style={{
                             flex: 1,
                             padding: "8px 20px 8px 20px",
@@ -632,6 +670,7 @@ export default function RifatAI(props: RifatAIProps) {
                             display: "flex",
                             flexDirection: "column",
                             gap: "14px",
+                            overscrollBehavior: "contain",
                         }}
                     >
                         {messages.map((msg) => (
@@ -671,6 +710,7 @@ export default function RifatAI(props: RifatAIProps) {
                                                 fontSize: "14px",
                                                 lineHeight: 1.5,
                                                 wordBreak: "break-word",
+                                                whiteSpace: "pre-wrap",
                                                 boxShadow:
                                                     "0 2px 8px rgba(0, 0, 0, 0.02)",
                                             }}
@@ -690,6 +730,7 @@ export default function RifatAI(props: RifatAIProps) {
                                             fontSize: "14px",
                                             lineHeight: 1.45,
                                             wordBreak: "break-word",
+                                            whiteSpace: "pre-wrap",
                                             boxShadow:
                                                 "0 2px 8px rgba(56, 160, 216, 0.25)",
                                         }}
@@ -836,51 +877,54 @@ export default function RifatAI(props: RifatAIProps) {
                                             userSelect: "none",
                                         }}
                                     >
-                                        {currentSuggestions.map((chip, idx) => (
-                                            <button
-                                                key={idx}
-                                                onClick={() => {
-                                                    if (!hasDragged)
-                                                        sendMessage(chip)
-                                                }}
-                                                style={{
-                                                    flexShrink: 0,
-                                                    background:
-                                                        "var(--rifat-chip-bg)",
-                                                    border: "1px solid var(--rifat-chip-border)",
-                                                    color: "var(--rifat-chip-text)",
-                                                    padding: "8px 16px",
-                                                    borderRadius: "20px",
-                                                    fontSize: "13px",
-                                                    fontWeight: 400,
-                                                    cursor: isDragging
-                                                        ? "grabbing"
-                                                        : "pointer",
-                                                    whiteSpace: "nowrap",
-                                                    transition: "all 0.2s ease",
-                                                    boxShadow:
-                                                        "0 1px 3px rgba(0, 0, 0, 0.02)",
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    if (!isDragging) {
-                                                        e.currentTarget.style.background =
-                                                            "var(--rifat-chip-hover-bg)"
-                                                        e.currentTarget.style.borderColor =
-                                                            "var(--rifat-chip-hover-border)"
-                                                    }
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    if (!isDragging) {
-                                                        e.currentTarget.style.background =
-                                                            "var(--rifat-chip-bg)"
-                                                        e.currentTarget.style.borderColor =
-                                                            "var(--rifat-chip-border)"
-                                                    }
-                                                }}
-                                            >
-                                                {chip}
-                                            </button>
-                                        ))}
+                                        {currentSuggestions.map((chip: any, idx: number) => {
+                                            const chipText = typeof chip === "string" ? chip : (chip?.text || String(chip))
+                                            return (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => {
+                                                        if (!hasDragged)
+                                                            sendMessage(chipText)
+                                                    }}
+                                                    style={{
+                                                        flexShrink: 0,
+                                                        background:
+                                                            "var(--rifat-chip-bg)",
+                                                        border: "1px solid var(--rifat-chip-border)",
+                                                        color: "var(--rifat-chip-text)",
+                                                        padding: "8px 16px",
+                                                        borderRadius: "20px",
+                                                        fontSize: "13px",
+                                                        fontWeight: 400,
+                                                        cursor: isDragging
+                                                            ? "grabbing"
+                                                            : "pointer",
+                                                        whiteSpace: "nowrap",
+                                                        transition: "all 0.2s ease",
+                                                        boxShadow:
+                                                            "0 1px 3px rgba(0, 0, 0, 0.02)",
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!isDragging) {
+                                                            e.currentTarget.style.background =
+                                                                "var(--rifat-chip-hover-bg)"
+                                                            e.currentTarget.style.borderColor =
+                                                                "var(--rifat-chip-hover-border)"
+                                                        }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        if (!isDragging) {
+                                                            e.currentTarget.style.background =
+                                                                "var(--rifat-chip-bg)"
+                                                            e.currentTarget.style.borderColor =
+                                                                "var(--rifat-chip-border)"
+                                                        }
+                                                    }}
+                                                >
+                                                    {chipText}
+                                                </button>
+                                            )
+                                        })}
                                     </div>
                                 </div>
 
