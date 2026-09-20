@@ -7,7 +7,7 @@ import {
   useIsStaticRenderer,
   ControlType,
   addPropertyControls,
-} from "@/lib/framer-compat";
+} from "framer";
 
 const AURORA =
   "conic-gradient(from 0deg at 50% 50%, #a05cff 0deg, #ff5fa2 72deg, #38e0d0 144deg, #4d7cff 216deg, #ffd166 288deg, #a05cff 360deg)";
