@@ -259,6 +259,23 @@ function useRifatStyleSheet(hideBadge: boolean) {
     }, [hideBadge])
 }
 
+
+// Helper function to render **bold** Markdown syntax as <strong> tags
+function renderFormattedText(text: string) {
+    if (!text) return null
+    const parts = text.split(/(\*{2}.*?\*{2})/g)
+    return parts.map((part, index) => {
+        if (part.startsWith("**") && part.endsWith("**") && part.length >= 4) {
+            return (
+                <strong key={index} style={{ fontWeight: 600 }}>
+                    {part.slice(2, -2)}
+                </strong>
+            )
+        }
+        return part
+    })
+}
+
 function RifatAvatar({
     src,
     size = 36,
@@ -715,7 +732,7 @@ export default function RifatAI(props: RifatAIProps) {
                                                     "0 2px 8px rgba(0, 0, 0, 0.02)",
                                             }}
                                         >
-                                            {msg.text}
+                                            {renderFormattedText(msg.text)}
                                         </div>
                                     </div>
                                 ) : (
@@ -735,7 +752,7 @@ export default function RifatAI(props: RifatAIProps) {
                                                 "0 2px 8px rgba(56, 160, 216, 0.25)",
                                         }}
                                     >
-                                        {msg.text}
+                                        {renderFormattedText(msg.text)}
                                     </div>
                                 )}
                             </div>
