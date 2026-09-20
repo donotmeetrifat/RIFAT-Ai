@@ -28,6 +28,8 @@ export const ControlType = {
   Enum: "enum",
   Array: "array",
   Object: "object",
+  Image: "image",
+  ComponentInstance: "componentInstance",
 };
 
 export function addPropertyControls(component: any, controls: any) {

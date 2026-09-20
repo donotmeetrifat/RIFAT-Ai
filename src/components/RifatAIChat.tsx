@@ -1,1133 +1,1128 @@
 "use client";
 
-import * as React from "react";
-import { createPortal } from "react-dom";
-import {
-  RenderTarget,
-  useIsStaticRenderer,
-  ControlType,
-  addPropertyControls,
-} from "framer";
+import * as React from "react"
+import { createPortal } from "react-dom"
+import { RenderTarget, addPropertyControls, ControlType } from "framer"
 
-const AURORA =
-  "conic-gradient(from 0deg at 50% 50%, #a05cff 0deg, #ff5fa2 72deg, #38e0d0 144deg, #4d7cff 216deg, #ffd166 288deg, #a05cff 360deg)";
-const STYLE_ID = "rifat-ai-css-v1";
+// Hardcoded Production Backend API Endpoint on Vercel
+const PRODUCTION_API_ENDPOINT = "https://rifat-ai.vercel.app/api/chat"
 
-const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap');
+// Direct remote image URL of Rifat as provided in the task context
+const DEFAULT_RIFAT_AVATAR =
+  "https://lh3.googleusercontent.com/d/1pObMtZALnLjzEezIr7VNTKuTSqZfMP0j"
 
-@keyframes aura-breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.055); } }
-@keyframes aura-spin { to { transform: rotate(360deg); } }
-@keyframes aura-dots { 0%,60%,100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-4px); opacity: 1; } }
-@keyframes aura-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes aura-glowpulse { 0%,100% { opacity: .7; } 50% { opacity: 1; } }
-.aura-close { transition: border-color .18s ease; }
-.aura-close:hover { border-color: var(--aura-glass-brd2) !important; }
-.aura-chip { transition: transform .18s ease, border-color .18s ease; }
-.aura-chip:hover { border-color: rgba(160,92,255,0.6) !important; transform: translateY(-1px) !important; }
-.aura-send { transition: transform .18s ease, opacity .18s ease; }
-.aura-send:hover:not(:disabled) { transform: translateY(-1px) scale(1.04) !important; }
-.aura-send:disabled { opacity: 0.5; cursor: not-allowed !important; }
-.aura-launcher .aura-lbl { transition: opacity .3s ease, transform .3s ease; }
-.aura-launcher:hover .aura-lbl { opacity: 1 !important; transform: translateY(-50%) translateX(0) !important; }
-.aura-scroll { overscroll-behavior: contain !important; overscroll-behavior-y: contain !important; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
-.aura-scroll::-webkit-scrollbar { width: 6px; }
-.aura-scroll::-webkit-scrollbar-thumb { background: var(--aura-glass-brd2); border-radius: 3px; }
-`;
-
-type ThemeVars = { [key: string]: string };
-
-const THEMES: { dark: ThemeVars; light: ThemeVars } = {
-  dark: {
-    "--aura-stage": "#08090f",
-    "--aura-text": "#eef0f8",
-    "--aura-muted": "rgba(238,240,248,0.55)",
-    "--aura-glass": "rgba(16,18,30,0.62)",
-    "--aura-glass-brd": "rgba(255,255,255,0.10)",
-    "--aura-glass-brd2": "rgba(255,255,255,0.16)",
-    "--aura-bubble-ai": "rgba(255,255,255,0.06)",
-    "--aura-pill": "rgba(255,255,255,0.045)",
-    "--aura-pill-brd": "rgba(255,255,255,0.11)",
-    "--aura-input": "rgba(255,255,255,0.05)",
-  },
-  light: {
-    "--aura-stage": "#eceef6",
-    "--aura-text": "#13141d",
-    "--aura-muted": "rgba(19,20,29,0.55)",
-    "--aura-glass": "rgba(255,255,255,0.66)",
-    "--aura-glass-brd": "rgba(19,20,29,0.08)",
-    "--aura-glass-brd2": "rgba(19,20,29,0.12)",
-    "--aura-bubble-ai": "rgba(19,20,29,0.05)",
-    "--aura-pill": "rgba(19,20,29,0.035)",
-    "--aura-pill-brd": "rgba(19,20,29,0.10)",
-    "--aura-input": "rgba(19,20,29,0.04)",
-  },
-};
-
-function injectOnce(id: string, make: () => HTMLElement) {
-  if (typeof document === "undefined") return;
-  if (document.getElementById(id)) return;
-  const el = make();
-  el.id = id;
-  document.head.appendChild(el);
-}
-
-function useAuraAssets() {
-  React.useEffect(() => {
-    injectOnce(STYLE_ID, () => {
-      const el = document.createElement("style");
-      el.textContent = CSS;
-      return el;
-    });
-  }, []);
-}
-
-const DISPLAY_FONT = "'Space Grotesk', system-ui, sans-serif";
-const BODY_FONT = "'Instrument Sans', system-ui, sans-serif";
-
-// Spinning aurora avatar disc used in header, idle state, and AI bubbles.
-function Avatar({
-  size,
-  glow,
-  isStatic,
-}: {
-  size: number;
-  glow?: boolean;
-  isStatic?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        position: "relative",
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        overflow: "hidden",
-        flexShrink: 0,
-        boxShadow: glow
-          ? `0 0 ${size * 0.4}px -2px rgba(160,92,255,0.75)`
-          : "none",
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          inset: "-30%",
-          background: AURORA,
-          animation: isStatic ? "none" : "aura-spin 7s linear infinite",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "radial-gradient(circle at 34% 30%, rgba(255,255,255,0.5), transparent 55%)",
-        }}
-      />
-    </div>
-  );
+export interface RifatAIProps {
+  assistantName?: string
+  greeting?: string
+  subtitle?: string
+  statusLabel?: string
+  suggestions?: Array<string | { text: string }>
+  theme?: "light" | "dark"
+  position?: "bottom-right" | "bottom-left" | "right" | "left"
+  bottomOffset?: number
+  hideFramerBadge?: boolean
+  magnetism?: number
+  avatarUrl?: string
 }
 
 interface Message {
-  text: string;
-  isUser: boolean;
-  isAI: boolean;
+  id: string
+  sender: "user" | "assistant"
+  text: string
 }
 
-export interface RifatAIChatProps {
-  assistantName?: string;
-  greeting?: string;
-  subtitle?: string;
-  statusLabel?: string;
-  suggestions?: Array<{ text: string }>;
-  theme?: "dark" | "light";
-  position?: "right" | "left";
-  magnetism?: number;
-  speed?: number;
-  apiEndpoint?: string;
-  style?: React.CSSProperties;
+// Initial Default Suggestions in First Person
+const DEFAULT_SUGGESTIONS = [
+  "What do you do?",
+  "What are your skills?",
+  "Tell me about your projects",
+  "How can I contact you?",
+]
+
+// Dynamic Follow-Up Questions Engine in First Person
+function generateDynamicFollowUps(lastQuery: string): string[] {
+  const q = lastQuery.toLowerCase()
+
+  if (q.includes("do") || q.includes("about") || q.includes("who")) {
+    return [
+      "What are your main skills?",
+      "Show me your top projects",
+      "How can we collaborate?",
+      "What tools do you use?",
+    ]
+  } else if (
+    q.includes("skill") ||
+    q.includes("tech") ||
+    q.includes("stack") ||
+    q.includes("code")
+  ) {
+    return [
+      "Do you build AI applications?",
+      "Tell me about your design process",
+      "Can I see your GitHub?",
+      "What is your specialty?",
+    ]
+  } else if (
+    q.includes("project") ||
+    q.includes("work") ||
+    q.includes("portfolio") ||
+    q.includes("built")
+  ) {
+    return [
+      "What live web apps have you built?",
+      "How do you integrate AI?",
+      "What is your latest project?",
+      "How to reach out to you?",
+    ]
+  } else if (
+    q.includes("contact") ||
+    q.includes("hire") ||
+    q.includes("email") ||
+    q.includes("service")
+  ) {
+    return [
+      "What services do you offer?",
+      "Are you available for freelance?",
+      "What is your working experience?",
+      "What are your core skills?",
+    ]
+  }
+
+  return [
+    "Tell me about your background",
+    "What technologies do you use?",
+    "What services do you provide?",
+    "How can I get in touch?",
+  ]
 }
 
-/**
- * @framerSupportedLayoutWidth any-prefer-fixed
- * @framerSupportedLayoutHeight any-prefer-fixed
- * @framerIntrinsicWidth 74
- * @framerIntrinsicHeight 74
- */
-export default function RifatAIChat(props: RifatAIChatProps) {
+const RIFAT_AI_STYLES = `
+@keyframes rifat-popIn {
+  0% { opacity: 0; transform: scale(0.96) translateY(12px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes rifat-pulseGlow {
+  0%, 100% { box-shadow: 0 10px 30px rgba(56, 160, 216, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.8); }
+  50% { box-shadow: 0 14px 38px rgba(56, 160, 216, 0.45), 0 0 0 2px rgba(255, 255, 255, 0.9); }
+}
+
+@keyframes rifat-dotPulse {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.75); }
+  40% { opacity: 1; transform: scale(1.15); }
+}
+
+.rifat-ai-root {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+.rifat-ai-root * {
+  box-sizing: border-box;
+}
+
+/* AUTOMATIC FRAMER FREE BADGE SUPPRESSOR */
+#__framer-badge-container,
+#framer-badge-container,
+[data-framer-badge],
+div[id*="framer-badge"],
+a[href*="framer.com?utm_campaign="] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* LIGHT THEME WITH #38A0D8 BLUE ACCENT */
+.rifat-ai-light {
+  --rifat-card-bg: rgba(248, 250, 252, 0.92);
+  --rifat-card-border: rgba(255, 255, 255, 0.95);
+  --rifat-card-shadow: 0 24px 60px -12px rgba(148, 163, 184, 0.35), 0 0 1px rgba(148, 163, 184, 0.2);
+  --rifat-text-main: #1e293b;
+  --rifat-text-sub: #64748b;
+  
+  --rifat-bot-msg-bg: #ffffff;
+  --rifat-bot-msg-border: rgba(226, 232, 240, 0.8);
+  --rifat-bot-msg-text: #334155;
+  
+  --rifat-user-msg-bg: #38A0D8;
+  --rifat-user-msg-text: #ffffff;
+  
+  --rifat-chip-bg: rgba(255, 255, 255, 0.95);
+  --rifat-chip-border: #e2e8f0;
+  --rifat-chip-text: #334155;
+  --rifat-chip-hover-bg: #eef8fc;
+  --rifat-chip-hover-border: #38A0D8;
+  
+  --rifat-input-bg: rgba(241, 245, 249, 0.75);
+  --rifat-input-border: #e2e8f0;
+  --rifat-accent: #38A0D8;
+  --rifat-accent-hover: #298ebd;
+}
+
+/* DARK THEME WITH #38A0D8 BLUE ACCENT */
+.rifat-ai-dark {
+  --rifat-card-bg: rgba(15, 23, 42, 0.9);
+  --rifat-card-border: rgba(255, 255, 255, 0.12);
+  --rifat-card-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.6);
+  --rifat-text-main: #f8fafc;
+  --rifat-text-sub: #94a3b8;
+  
+  --rifat-bot-msg-bg: rgba(30, 41, 59, 0.9);
+  --rifat-bot-msg-border: rgba(51, 65, 85, 0.8);
+  --rifat-bot-msg-text: #f1f5f9;
+  
+  --rifat-user-msg-bg: #38A0D8;
+  --rifat-user-msg-text: #ffffff;
+  
+  --rifat-chip-bg: rgba(30, 41, 59, 0.85);
+  --rifat-chip-border: rgba(51, 65, 85, 0.8);
+  --rifat-chip-text: #e2e8f0;
+  --rifat-chip-hover-bg: rgba(56, 160, 216, 0.18);
+  --rifat-chip-hover-border: #38A0D8;
+  
+  --rifat-input-bg: rgba(30, 41, 59, 0.7);
+  --rifat-input-border: rgba(51, 65, 85, 0.8);
+  --rifat-accent: #38A0D8;
+  --rifat-accent-hover: #298ebd;
+}
+
+.rifat-ai-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.rifat-ai-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.rifat-ai-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+}
+
+/* Horizontal Scroll Track for Questions Carousel */
+.rifat-ai-scroll-x {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  padding: 4px 6px;
+}
+
+.rifat-ai-scroll-x::-webkit-scrollbar {
+  display: none;
+}
+`
+
+function useRifatStyleSheet(hideBadge: boolean) {
+  React.useEffect(() => {
+    if (typeof document === "undefined") return
+    const id = "rifat-ai-fade-carousel-styles"
+    if (!document.getElementById(id)) {
+      const style = document.createElement("style")
+      style.id = id
+      style.innerHTML = RIFAT_AI_STYLES
+      document.head.appendChild(style)
+    }
+
+    if (!hideBadge) return
+
+    // JS Observer & Interval to hide Framer Free Badge dynamically
+    const hideFramerBadgeElements = () => {
+      const targets = document.querySelectorAll(
+        "#__framer-badge-container, #framer-badge-container, [data-framer-badge], a[href*='framer.com']"
+      )
+      targets.forEach((node) => {
+        const el = node as HTMLElement
+        if (
+          el.id?.includes("framer-badge") ||
+          el.hasAttribute("data-framer-badge") ||
+          el.innerText?.includes("Made in Framer") ||
+          (el.tagName === "A" &&
+            (el as HTMLAnchorElement).href?.includes("framer.com"))
+        ) {
+          const container = el.closest("div[style*='fixed']") || el
+          container.setAttribute(
+            "style",
+            "display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important;"
+          )
+        }
+      })
+    }
+
+    hideFramerBadgeElements()
+    const interval = setInterval(hideFramerBadgeElements, 400)
+    return () => clearInterval(interval)
+  }, [hideBadge])
+}
+
+function RifatAvatar({
+  src,
+  size = 36,
+  alt = "Rifat",
+}: {
+  src: string
+  size?: number
+  alt?: string
+}) {
+  const [hasError, setHasError] = React.useState(false)
+
+  if (hasError || !src) {
+    return (
+      <div
+        style={{
+          width: `${size}px`,
+          height: `${size}px`,
+          borderRadius: "50%",
+          background:
+            "linear-gradient(135deg, #38A0D8 0%, #298ebd 100%)",
+          color: "#ffffff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontWeight: 600,
+          fontSize: `${Math.round(size * 0.4)}px`,
+          flexShrink: 0,
+          boxShadow: "0 2px 6px rgba(56, 160, 216, 0.25)",
+        }}
+      >
+        R
+      </div>
+    )
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onError={() => setHasError(true)}
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        borderRadius: "50%",
+        objectFit: "cover",
+        flexShrink: 0,
+        border: "1px solid rgba(255, 255, 255, 0.9)",
+        boxShadow: "0 2px 6px rgba(0, 0, 0, 0.08)",
+      }}
+    />
+  )
+}
+
+export default function RifatAI(props: RifatAIProps) {
   const {
     assistantName = "RIFAT Ai",
     greeting = "Hey, I'm Rifat!",
-    subtitle = "Ask me about my work, skills, projects, or how we can collaborate.",
-    statusLabel = "AI Assistant · online",
-    suggestions = [
-      { text: "What does Rifat do?" },
-      { text: "Show me Rifat's projects" },
-      { text: "What skills does Rifat have?" },
-      { text: "How can I work with Rifat?" },
-    ],
-    theme = "dark",
-    position = "right",
-    magnetism = 0.5,
-    speed = 1,
-    apiEndpoint = "/api/chat",
-    style,
-  } = props;
+    subtitle = "Ask me about my work, skills, projects, or services.",
+    statusLabel = "Rifat • online",
+    suggestions = DEFAULT_SUGGESTIONS,
+    theme = "light",
+    position = "bottom-right",
+    bottomOffset = 32,
+    hideFramerBadge = true,
+    magnetism = 0.35,
+    avatarUrl = DEFAULT_RIFAT_AVATAR,
+  } = props
 
-  const name = assistantName || "RIFAT Ai";
-  const isCanvas = RenderTarget.current() === RenderTarget.canvas;
-  const isStatic = useIsStaticRenderer();
-  const isLeft = position === "left";
+  useRifatStyleSheet(hideFramerBadge)
 
-  const [open, setOpen] = React.useState(false);
-  const [messages, setMessages] = React.useState<Message[]>([]);
-  const [input, setInput] = React.useState("");
-  const [typing, setTyping] = React.useState(false);
-  const [mounted, setMounted] = React.useState(false);
+  const [isOpen, setIsOpen] = React.useState(false)
+  const [messages, setMessages] = React.useState<Message[]>([
+    {
+      id: "greeting-msg",
+      sender: "assistant",
+      text: `${greeting} ${subtitle}`,
+    },
+  ])
+  const [currentSuggestions, setCurrentSuggestions] = React.useState<
+    string[]
+  >(suggestions && suggestions.length > 0 ? suggestions.map(s => typeof s === "string" ? s : s.text) : DEFAULT_SUGGESTIONS)
+  const [input, setInput] = React.useState("")
+  const [isLoading, setIsLoading] = React.useState(false)
+  const panelRef = React.useRef<HTMLDivElement | null>(null)
+    const messagesScrollRef = React.useRef<HTMLDivElement | null>(null)
+    const [currentTheme, setCurrentTheme] = React.useState<"light" | "dark">(
+    theme
+  )
+
+  // Drag-to-Scroll & Button Navigation state
+  const scrollContainerRef = React.useRef<HTMLDivElement | null>(null)
+  const [isDragging, setIsDragging] = React.useState(false)
+  const [startX, setStartX] = React.useState(0)
+  const [scrollLeftState, setScrollLeftState] = React.useState(0)
+  const [hasDragged, setHasDragged] = React.useState(false)
 
   React.useEffect(() => {
-    setMounted(true);
-  }, []);
+    setCurrentTheme(theme)
+  }, [theme])
 
-  const orbRef = React.useRef<HTMLCanvasElement | null>(null);
-  const waveRef = React.useRef<HTMLCanvasElement | null>(null);
-  const magRef = React.useRef<HTMLDivElement | null>(null);
-  const scrollRef = React.useRef<HTMLDivElement | null>(null);
-  const panelRef = React.useRef<HTMLDivElement | null>(null);
-  const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const launcherRef = React.useRef<HTMLDivElement | null>(null)
+  const [mouseOffset, setMouseOffset] = React.useState({ x: 0, y: 0 })
 
-  const magnetismRef = React.useRef(magnetism);
-  const speedRef = React.useRef(speed);
-  const waveActiveRef = React.useRef(false);
-  const openRef = React.useRef(open);
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!launcherRef.current || magnetism <= 0) return
+    const rect = launcherRef.current.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    const deltaX = (e.clientX - centerX) * magnetism
+    const deltaY = (e.clientY - centerY) * magnetism
+    setMouseOffset({ x: deltaX, y: deltaY })
+  }
 
-  magnetismRef.current = magnetism;
-  speedRef.current = speed;
-  openRef.current = open;
+  const handleMouseLeave = () => {
+    setMouseOffset({ x: 0, y: 0 })
+  }
 
-  useAuraAssets();
+  const chatEndRef = React.useRef<HTMLDivElement | null>(null)
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
 
-  const showIdle = messages.length === 0 && !typing;
+  React.useEffect(() => {
+    if (isOpen) {
+      scrollToBottom()
+    }
+  }, [messages, isLoading, isOpen])
 
-  // Real AI Send Handler with Gemini API Route Integration
-  async function send(textToSend?: string) {
-    const v = (textToSend !== undefined ? textToSend : input).trim();
-    if (!v || isCanvas || typing) return;
+  // Carousel Mouse Drag Handlers
+  const handleCarouselMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!scrollContainerRef.current) return
+    setIsDragging(true)
+    setHasDragged(false)
+    setStartX(e.pageX - scrollContainerRef.current.offsetLeft)
+    setScrollLeftState(scrollContainerRef.current.scrollLeft)
+  }
 
-    const currentHistory = [...messages];
-    const userMsg: Message = { text: v, isUser: true, isAI: false };
+  const handleCarouselMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging || !scrollContainerRef.current) return
+    e.preventDefault()
+    const x = e.pageX - scrollContainerRef.current.offsetLeft
+    const walk = (x - startX) * 1.5
+    if (Math.abs(x - startX) > 4) {
+      setHasDragged(true)
+    }
+    scrollContainerRef.current.scrollLeft = scrollLeftState - walk
+  }
 
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setTyping(true);
+  const handleCarouselMouseUpOrLeave = () => {
+    setIsDragging(false)
+  }
+
+  // Scroll By Button Helper
+  const scrollByAmount = (direction: "left" | "right") => {
+    if (!scrollContainerRef.current) return
+    const amount = direction === "left" ? -180 : 180
+    scrollContainerRef.current.scrollBy({
+      left: amount,
+      behavior: "smooth",
+    })
+  }
+
+  const sendMessage = async (textToSend?: string) => {
+    const query = (textToSend || input).trim()
+    if (!query || isLoading) return
+
+    const userMsg: Message = {
+      id: `usr-${Date.now()}`,
+      sender: "user",
+      text: query,
+    }
+
+    const historyPayload = messages.map((m) => ({
+      role: m.sender === "user" ? "user" : "model",
+      parts: [{ text: m.text }],
+    }))
+
+    setMessages((prev) => [...prev, userMsg])
+    if (!textToSend) setInput("")
+    setIsLoading(true)
+
+    // Dynamically update follow-up questions in First-Person voice
+    const followUps = generateDynamicFollowUps(query)
+    setCurrentSuggestions(followUps)
 
     try {
-      const response = await fetch(apiEndpoint, {
+      const res = await fetch(PRODUCTION_API_ENDPOINT, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: v,
-          history: currentHistory,
+          message: query,
+          history: historyPayload,
         }),
-      });
+      })
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`)
       }
 
-      const data = await response.json();
-      const aiReplyText =
-        data?.answer ||
-        "Looks like I'm having a connection issue right now. You can still reach Rifat directly through the contact links.";
+      const data = await res.json()
+      const replyText =
+        data.answer ||
+        data.reply ||
+        data.message ||
+        "I've received your request! Is there anything else about my work you'd like to know?"
 
-      setMessages((prev) => [
-        ...prev,
-        { text: aiReplyText, isUser: false, isAI: true },
-      ]);
-    } catch (err) {
-      console.error("[RIFAT Ai Chat Error]", err);
-      setMessages((prev) => [
-        ...prev,
-        {
-          text: "Looks like I'm having a connection issue right now. You can still reach Rifat directly through the contact links.",
-          isUser: false,
-          isAI: true,
-        },
-      ]);
+      const botMsg: Message = {
+        id: `bot-${Date.now()}`,
+        sender: "assistant",
+        text: replyText,
+      }
+
+      setMessages((prev) => [...prev, botMsg])
+    } catch (err: any) {
+      console.error("RIFAT Ai Chat API Error:", err)
+      const errorDetails = err?.message || String(err)
+      const errorMsg: Message = {
+        id: `err-${Date.now()}`,
+        sender: "assistant",
+        text: `I'm having trouble connecting right now (${errorDetails}). Please try again in a moment, or reach out to me directly!`,
+      }
+      setMessages((prev) => [...prev, errorMsg])
     } finally {
-      setTyping(false);
+      setIsLoading(false)
     }
   }
 
-  function toggleOpen() {
-    setOpen((o) => !o);
-  }
+  const isLeft = position === "bottom-left" || position === "left";
+    const posStyles: React.CSSProperties =
+    position === "bottom-left"
+      ? { left: "24px", right: "auto" }
+      : { right: "24px", left: "auto" }
 
-  // Keep the message list pinned to the newest message.
-  React.useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, typing]);
-
-  
-  // Prevent wheel scroll event chaining from chat panel to host window/body
-  React.useEffect(() => {
-    const panelEl = panelRef.current;
-    const scrollEl = scrollRef.current;
-    if (!panelEl || !open) return;
-
-    const handlePanelWheel = (e: WheelEvent) => {
-      e.stopPropagation();
-
-      if (scrollEl && scrollEl.contains(e.target as Node)) {
-        const { scrollTop, scrollHeight, clientHeight } = scrollEl;
-        const delta = e.deltaY;
-        const isUp = delta < 0;
-        const isDown = delta > 0;
-
-        if ((isUp && scrollTop <= 0) || (isDown && scrollTop + clientHeight >= scrollHeight - 1)) {
-          e.preventDefault();
-        }
-      } else {
-        e.preventDefault();
-      }
-    };
-
-    const handlePanelTouchMove = (e: TouchEvent) => {
-      e.stopPropagation();
-    };
-
-    panelEl.addEventListener("wheel", handlePanelWheel, { passive: false });
-    panelEl.addEventListener("touchmove", handlePanelTouchMove, { passive: true });
-
-    return () => {
-      panelEl.removeEventListener("wheel", handlePanelWheel);
-      panelEl.removeEventListener("touchmove", handlePanelTouchMove);
-    };
-  }, [open]);
-
-  // Focus the input shortly after the panel finishes opening.
-  React.useEffect(() => {
-    if (open && !isCanvas) {
-      const t = setTimeout(() => inputRef.current?.focus(), 420);
-      return () => clearTimeout(t);
-    }
-  }, [open, isCanvas]);
-
-  // ---- canvas plasma orb + input waveform + magnetic cursor ----
-  React.useEffect(() => {
-    const dpr = Math.min(
-      (typeof window !== "undefined" && window.devicePixelRatio) || 1,
-      2
-    );
-    function setup(c: HTMLCanvasElement | null, w: number, h: number) {
-      if (!c) return null;
-      c.width = w * dpr;
-      c.height = h * dpr;
-      const ctx = c.getContext("2d");
-      if (!ctx) return null;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      return { ctx, w, h };
-    }
-    const orb = setup(orbRef.current, 74, 74);
-    const wave = setup(waveRef.current, 30, 22);
-
-    const blobs = [
-      { c: [255, 95, 162], sx: 0.7, sy: 0.9, rx: 0.2, ry: 0.22, p: 0.0, p2: 1.2 },
-      { c: [160, 92, 255], sx: -0.6, sy: 0.7, rx: 0.24, ry: 0.18, p: 2.1, p2: 0.4 },
-      { c: [77, 124, 255], sx: 0.9, sy: -0.8, rx: 0.18, ry: 0.24, p: 4.0, p2: 2.7 },
-      { c: [56, 224, 208], sx: -0.8, sy: -0.6, rx: 0.22, ry: 0.2, p: 1.1, p2: 3.9 },
-      { c: [255, 209, 102], sx: 0.5, sy: 0.6, rx: 0.16, ry: 0.16, p: 3.3, p2: 5.1 },
-    ];
-    const parts: any[] = [];
-    for (let i = 0; i < 12; i++) {
-      parts.push({
-        r: 0.12 + (i % 5) * 0.06,
-        s: 0.5 + (i % 4) * 0.45 * (i % 2 ? 1 : -1),
-        p: i * 0.9,
-        sz: 0.7 + (i % 3) * 0.5,
-        a: 0.35 + (i % 4) * 0.14,
-      });
-    }
-
-    let mx = 0;
-    let my = 0;
-    let tmx = 0;
-    let tmy = 0;
-    let waveAmp = 0.28;
-    let raf = 0;
-
-    function onMove(e: MouseEvent) {
-      const el = magRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height / 2;
-      const dx = e.clientX - cx;
-      const dy = e.clientY - cy;
-      const d = Math.hypot(dx, dy);
-      const range = 200;
-      const strength =
-        magnetismRef.current != null ? magnetismRef.current : 0.5;
-      if (d < range) {
-        const f = (1 - d / range) * strength;
-        tmx = dx * f;
-        tmy = dy * f;
-      } else {
-        tmx = 0;
-        tmy = 0;
-      }
-    }
-
-    function roundRect(
-      ctx: CanvasRenderingContext2D,
-      x: number,
-      y: number,
-      w: number,
-      h: number,
-      r: number
-    ) {
-      r = Math.min(r, w / 2, h / 2);
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.arcTo(x + w, y, x + w, y + h, r);
-      ctx.arcTo(x + w, y + h, x, y + h, r);
-      ctx.arcTo(x, y + h, x, y, r);
-      ctx.arcTo(x, y, x + w, y, r);
-      ctx.closePath();
-    }
-
-    function drawOrb(t: number) {
-      if (!orb) return;
-      const { ctx, w, h } = orb;
-      ctx.clearRect(0, 0, w, h);
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(w / 2, h / 2, w / 2, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.fillStyle = "#07060f";
-      ctx.fillRect(0, 0, w, h);
-
-      blobs.forEach((b) => {
-        const bx = w / 2 + Math.sin(t * b.sx + b.p) * w * b.rx;
-        const by = h / 2 + Math.cos(t * b.sy + b.p2) * h * b.ry;
-        const rad = w * 0.45;
-        const g = ctx.createRadialGradient(bx, by, 0, bx, by, rad);
-        g.addColorStop(
-          0,
-          `rgba(${b.c[0]},${b.c[1]},${b.c[2]},0.85)`
-        );
-        g.addColorStop(
-          0.55,
-          `rgba(${b.c[0]},${b.c[1]},${b.c[2]},0.35)`
-        );
-        g.addColorStop(1, `rgba(${b.c[0]},${b.c[1]},${b.c[2]},0)`);
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(bx, by, rad, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      parts.forEach((p) => {
-        const a = t * p.s + p.p;
-        const dist = w * p.r;
-        const px = w / 2 + Math.cos(a) * dist;
-        const py = h / 2 + Math.sin(a) * dist;
-        ctx.fillStyle = `rgba(255,255,255,${p.a})`;
-        ctx.beginPath();
-        ctx.arc(px, py, p.sz, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      const sheen = ctx.createRadialGradient(
-        w * 0.35,
-        h * 0.3,
-        0,
-        w * 0.35,
-        h * 0.3,
-        w * 0.5
-      );
-      sheen.addColorStop(0, "rgba(255,255,255,0.45)");
-      sheen.addColorStop(0.4, "rgba(255,255,255,0.08)");
-      sheen.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = sheen;
-      ctx.beginPath();
-      ctx.arc(w / 2, h / 2, w / 2, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.restore();
-    }
-
-    function drawWave(t: number) {
-      if (!wave) return;
-      const { ctx, w, h } = wave;
-      ctx.clearRect(0, 0, w, h);
-      const targetAmp = waveActiveRef.current ? 0.95 : 0.28;
-      waveAmp += (targetAmp - waveAmp) * 0.12;
-      const count = 4;
-      const gap = 3;
-      const bw = (w - (count - 1) * gap) / count;
-
-      for (let i = 0; i < count; i++) {
-        const phase = i * 0.9 + t * 4.5;
-        const sin = Math.sin(phase);
-        const norm = (sin + 1) / 2;
-        const amp = 0.2 + norm * 0.75 * waveAmp;
-        const x = i * (bw + gap);
-
-        const g = ctx.createLinearGradient(0, h, 0, 0);
-        g.addColorStop(0, "rgba(160,92,255,0.5)");
-        g.addColorStop(1, "rgba(56,224,208,0.95)");
-        ctx.fillStyle = g;
-
-        const bh = Math.max(2, amp * h);
-        roundRect(ctx, x, (h - bh) / 2, bw, bh, 1.2);
-        ctx.fill();
-      }
-    }
-
-    function tick(now: number) {
-      raf = requestAnimationFrame(tick);
-      const spd = speedRef.current != null ? speedRef.current : 1;
-      const t = (now / 1000) * spd;
-      const ttx = openRef.current ? 0 : tmx;
-      const tty = openRef.current ? 0 : tmy;
-      mx += (ttx - mx) * 0.12;
-      my += (tty - my) * 0.12;
-      if (magRef.current) {
-        magRef.current.style.transform = `translate(${mx.toFixed(2)}px, ${my.toFixed(2)}px)`;
-      }
-      drawOrb(t);
-      drawWave(t);
-    }
-
-    if (isStatic) {
-      drawOrb(0);
-      drawWave(0);
-      return;
-    }
-
-    if (!isCanvas && typeof window !== "undefined") {
-      window.addEventListener("mousemove", onMove);
-    }
-    raf = requestAnimationFrame(tick);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      if (typeof window !== "undefined") {
-        window.removeEventListener("mousemove", onMove);
-      }
-    };
-  }, [isCanvas, isStatic]);
-
-  const themeVars = THEMES[theme === "light" ? "light" : "dark"];
-  const side = isLeft ? { left: 28 } : { right: 28 };
-  const panelSide = isLeft ? { left: 28 } : { right: 28 };
-
-  const rootStyle: React.CSSProperties = {
-    position: isCanvas ? "relative" : "fixed",
-    inset: isCanvas ? undefined : 0,
-    width: isCanvas ? "100%" : undefined,
-    height: isCanvas ? "100%" : undefined,
-    minHeight: isCanvas ? 620 : undefined,
-    pointerEvents: isCanvas ? "auto" : "none",
-    fontFamily: BODY_FONT,
-    color: "var(--aura-text)",
-    zIndex: isCanvas ? undefined : 999999,
-    ...(themeVars as React.CSSProperties),
-    ...style,
-  };
-
-  const resolvedGreeting = greeting || `Hi, I'm ${name}`;
-  const chips: Array<{ text: string }> =
-    Array.isArray(suggestions) && suggestions.length > 0 ? suggestions : [];
-
-  const content = (
-    <div style={rootStyle}>
-      {/* ===================== CHAT PANEL ===================== */}
-      <div
-        role="dialog"
-        aria-label={`${name} AI assistant`}
-        style={{
-          position: "absolute",
-          bottom: 112,
-          ...panelSide,
-          zIndex: 999999,
-          width: "min(384px, calc(100vw - 44px))",
-          height: "min(566px, 76vh)",
-          display: "flex",
-          flexDirection: "column",
-          borderRadius: 26,
-          overflow: "hidden",
-          background: "var(--aura-glass)",
-          backdropFilter: "blur(26px) saturate(1.5)",
-          WebkitBackdropFilter: "blur(26px) saturate(1.5)",
-          border: "1px solid var(--aura-glass-brd2)",
-          boxShadow:
-            "0 30px 80px -20px rgba(10,6,30,0.55), 0 0 0 1px rgba(255,255,255,0.03) inset",
-          transformOrigin: isLeft ? "bottom left" : "bottom right",
-          opacity: open ? 1 : 0,
-          transform: open
-            ? "translateY(0) scale(1)"
-            : "translateY(18px) scale(0.92)",
-          pointerEvents: open ? "auto" : "none",
-          transition:
-            "opacity .45s cubic-bezier(.2,.9,.25,1), transform .55s cubic-bezier(.2,.9,.25,1)",
-        }}
-      >
-        {/* Panel Ambient Aurora */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            top: "-40%",
-            left: "-20%",
-            width: "140%",
-            height: "120%",
-            background: AURORA,
-            filter: "blur(60px)",
-            opacity: 0.16,
-            animation: isStatic ? "none" : "aura-spin 26s linear infinite",
-            pointerEvents: "none",
-          }}
-        />
-
-        {/* Header */}
+  const portalContent = (
+    <div
+      className={`rifat-ai-root rifat-ai-${currentTheme}`}
+      style={{
+        position: "fixed",
+        bottom: `${bottomOffset}px`,
+        ...posStyles,
+        zIndex: 999999,
+        display: "flex",
+        flexDirection: "column",
+        alignItems:
+          isLeft ? "flex-start" : "flex-end",
+        pointerEvents: "auto",
+      }}
+    >
+      {/* Main Chat Window Card */}
+      {isOpen && (
         <div
           style={{
-            position: "relative",
+            width: "calc(100vw - 32px)",
+            maxWidth: "390px",
+            height: "550px",
+            maxHeight: "calc(100vh - 100px)",
+            marginBottom: "16px",
+            borderRadius: "28px",
+            background: "var(--rifat-card-bg)",
+            border: "1px solid var(--rifat-card-border)",
+            backdropFilter: "blur(28px) saturate(140%)",
+            WebkitBackdropFilter: "blur(28px) saturate(140%)",
+            boxShadow: "var(--rifat-card-shadow)",
             display: "flex",
-            alignItems: "center",
-            gap: 12,
-            padding: "16px 16px 14px",
-            borderBottom: "1px solid var(--aura-glass-brd)",
+            flexDirection: "column",
+            overflow: "hidden",
+            animation: "rifat-popIn 0.25s ease-out forwards",
           }}
         >
-          <Avatar size={38} glow isStatic={isStatic} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontFamily: DISPLAY_FONT,
-                fontWeight: 600,
-                fontSize: 15,
-                lineHeight: 1.1,
-              }}
-            >
-              {name}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 12,
-                color: "var(--aura-muted)",
-                marginTop: 2,
-              }}
-            >
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  background: "#38e0d0",
-                  boxShadow: "0 0 6px #38e0d0",
-                }}
-              />
-              {statusLabel}
-            </div>
-          </div>
-          <button
-            className="aura-close"
-            onClick={toggleOpen}
-            aria-label="Close chat"
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: "50%",
-              border: "1px solid var(--aura-glass-brd)",
-              background: "var(--aura-input)",
-              color: "var(--aura-text)",
-              fontSize: 17,
-              lineHeight: 1,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Body */}
-        <div
-          ref={scrollRef}
-          className="aura-scroll"
-          style={{
-            position: "relative",
-            flex: 1,
-            overflowY: "auto",
-            padding: "20px 16px 8px",
-          }}
-        >
-          {showIdle && (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                textAlign: "center",
-                padding: "24px 8px 16px",
-                animation: isStatic ? "none" : "aura-in .5s ease both",
-              }}
-            >
-              <Avatar size={54} glow isStatic={isStatic} />
-              <div
-                style={{
-                  fontFamily: DISPLAY_FONT,
-                  fontWeight: 600,
-                  fontSize: 18,
-                  marginTop: 14,
-                  lineHeight: 1.25,
-                }}
-              >
-                {resolvedGreeting}
-              </div>
-              <div
-                style={{
-                  fontSize: 13,
-                  color: "var(--aura-muted)",
-                  marginTop: 6,
-                  maxWidth: 260,
-                  lineHeight: 1.45,
-                }}
-              >
-                {subtitle}
-              </div>
-
-              {chips.length > 0 && (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 7,
-                    width: "100%",
-                    marginTop: 22,
-                  }}
-                >
-                  {chips.map((chip, idx) => (
-                    <button
-                      key={idx}
-                      className="aura-chip"
-                      onClick={() => send(chip.text)}
-                      style={{
-                        padding: "10px 14px",
-                        borderRadius: 14,
-                        border: "1px solid var(--aura-pill-brd)",
-                        background: "var(--aura-pill)",
-                        color: "var(--aura-text)",
-                        fontSize: 13,
-                        textAlign: "left",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      <span>{chip.text}</span>
-                      <span
-                        style={{
-                          opacity: 0.45,
-                          fontSize: 14,
-                          marginLeft: 8,
-                        }}
-                      >
-                        →
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {messages.map((m, i) =>
-            m.isAI ? (
-              <div
-                key={i}
-                style={{
-                  display: "flex",
-                  gap: 9,
-                  alignItems: "flex-end",
-                  margin: "0 0 14px",
-                  animation: isStatic ? "none" : "aura-in .4s ease both",
-                }}
-              >
-                <Avatar size={26} isStatic={isStatic} />
-                <div
-                  style={{
-                    maxWidth: "82%",
-                    padding: "11px 14px",
-                    borderRadius: "16px 16px 16px 5px",
-                    background: "var(--aura-bubble-ai)",
-                    border: "1px solid var(--aura-glass-brd)",
-                    color: "var(--aura-text)",
-                    fontSize: 14,
-                    lineHeight: 1.5,
-                    wordBreak: "break-word",
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  {m.text}
-                </div>
-              </div>
-            ) : (
-              <div
-                key={i}
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  margin: "0 0 14px",
-                  animation: isStatic ? "none" : "aura-in .4s ease both",
-                }}
-              >
-                <div
-                  style={{
-                    maxWidth: "82%",
-                    padding: "11px 14px",
-                    borderRadius: "16px 16px 5px 16px",
-                    background: "linear-gradient(135deg,#a05cff,#4d7cff)",
-                    color: "#fff",
-                    fontSize: 14,
-                    lineHeight: 1.5,
-                    boxShadow: "0 8px 20px -8px rgba(120,80,255,0.7)",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {m.text}
-                </div>
-              </div>
-            )
-          )}
-
-          {typing && (
-            <div
-              style={{
-                display: "flex",
-                gap: 9,
-                alignItems: "flex-end",
-                margin: "0 0 14px",
-              }}
-            >
-              <Avatar size={26} isStatic={isStatic} />
-              <div
-                style={{
-                  display: "flex",
-                  gap: 5,
-                  padding: "14px 15px",
-                  borderRadius: "16px 16px 16px 5px",
-                  background: "var(--aura-bubble-ai)",
-                  border: "1px solid var(--aura-glass-brd)",
-                }}
-              >
-                {[0, 0.18, 0.36].map((delay, i) => (
-                  <span
-                    key={i}
-                    style={{
-                      width: 7,
-                      height: 7,
-                      borderRadius: "50%",
-                      background: "var(--aura-muted)",
-                      animation: isStatic
-                        ? "none"
-                        : `aura-dots 1.3s infinite ${delay}s`,
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Input */}
-        <div style={{ position: "relative", padding: "12px 14px 14px" }}>
+          {/* Header */}
           <div
             style={{
+              padding: "18px 22px 14px 22px",
               display: "flex",
               alignItems: "center",
-              gap: 8,
-              padding: "6px 6px 6px 16px",
-              borderRadius: 16,
-              border: "1px solid var(--aura-glass-brd2)",
-              background: "var(--aura-input)",
+              justifyContent: "space-between",
             }}
           >
-            <input
-              ref={inputRef}
-              value={input}
-              disabled={typing}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey && !typing) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-              onFocus={() => {
-                waveActiveRef.current = true;
-              }}
-              onBlur={() => {
-                waveActiveRef.current = false;
-              }}
-              placeholder={`Ask ${name} anything...`}
+            <div
               style={{
-                flex: 1,
-                minWidth: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+              }}
+            >
+              <RifatAvatar
+                src={avatarUrl}
+                size={40}
+                alt={assistantName}
+              />
+              <div>
+                <div
+                  style={{
+                    fontSize: "16.5px",
+                    fontWeight: 600,
+                    color: "var(--rifat-text-main)",
+                    lineHeight: 1.2,
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  {assistantName}
+                </div>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--rifat-text-sub)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    marginTop: "2px",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: "7px",
+                      height: "7px",
+                      borderRadius: "50%",
+                      background: "#10b981",
+                      display: "inline-block",
+                    }}
+                  />
+                  {statusLabel}
+                </div>
+              </div>
+            </div>
+
+            {/* Minimal Close Icon */}
+            <button
+              onClick={() => setIsOpen(false)}
+              title="Close Chat"
+              aria-label="Close Chat"
+              style={{
                 background: "transparent",
                 border: "none",
-                outline: "none",
-                color: "var(--aura-text)",
-                fontFamily: BODY_FONT,
-                fontSize: 14,
-              }}
-            />
-            <canvas
-              ref={waveRef}
-              width={30}
-              height={22}
-              style={{ width: 30, height: 22, opacity: 0.9 }}
-            />
-            <button
-              className="aura-send"
-              disabled={typing || !input.trim()}
-              onClick={() => send()}
-              aria-label="Send"
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 12,
-                border: "none",
-                cursor: typing ? "not-allowed" : "pointer",
-                flexShrink: 0,
-                background:
-                  "linear-gradient(135deg,#ff5fa2,#a05cff,#4d7cff)",
-                color: "#fff",
-                fontSize: 18,
-                lineHeight: 1,
+                color: "var(--rifat-text-sub)",
+                cursor: "pointer",
+                padding: "4px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 6px 16px -6px rgba(160,92,255,0.9)",
+                opacity: 0.7,
+                transition: "opacity 0.2s ease",
               }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.opacity = "1")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.opacity = "0.7")
+              }
             >
-              ↑
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
             </button>
           </div>
-        </div>
-      </div>
 
-      {/* ===================== LAUNCHER ===================== */}
-      <button
-        className="aura-launcher"
-        onClick={toggleOpen}
-        aria-label={
-          open ? `Close ${name} chat` : `Open ${name} AI chat`
-        }
-        style={{
-          position: "absolute",
-          bottom: 28,
-          ...side,
-          zIndex: 999999,
-          width: 74,
-          height: 74,
-          padding: 0,
-          border: "none",
-          background: "transparent",
-          cursor: "pointer",
-          pointerEvents: "auto",
-          transform: open ? "scale(0.85)" : "scale(1)",
-          transition: "transform .4s cubic-bezier(.2,.9,.25,1)",
-        }}
-      >
-        {/* Hover label — only while closed */}
-        {!open && (
-          <span
-            className="aura-lbl"
+          {/* Messages Scroll Area */}
+          <div
+            className="rifat-ai-scrollbar"
             style={{
-              position: "absolute",
-              ...(isLeft ? { left: 86 } : { right: 86 }),
-              top: "50%",
-              transform: "translateY(-50%) translateX(10px)",
-              opacity: 0,
-              whiteSpace: "nowrap",
-              padding: "9px 15px",
-              borderRadius: 999,
-              background: "var(--aura-glass)",
-              backdropFilter: "blur(14px)",
-              WebkitBackdropFilter: "blur(14px)",
-              border: "1px solid var(--aura-glass-brd2)",
-              fontFamily: DISPLAY_FONT,
-              fontSize: 13,
-              fontWeight: 600,
-              color: "var(--aura-text)",
-              pointerEvents: "none",
+              flex: 1,
+              padding: "8px 20px 8px 20px",
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: "14px",
             }}
           >
-            Ask {name}
-          </span>
-        )}
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems:
+                    msg.sender === "user"
+                      ? "flex-end"
+                      : "flex-start",
+                }}
+              >
+                {msg.sender === "assistant" ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "10px",
+                      maxWidth: "92%",
+                    }}
+                  >
+                    <RifatAvatar
+                      src={avatarUrl}
+                      size={30}
+                      alt={assistantName}
+                    />
+                    <div
+                      style={{
+                        padding: "12px 16px",
+                        borderRadius: "18px",
+                        background:
+                          "var(--rifat-bot-msg-bg)",
+                        border: "1px solid var(--rifat-bot-msg-border)",
+                        color: "var(--rifat-bot-msg-text)",
+                        fontSize: "14px",
+                        lineHeight: 1.5,
+                        wordBreak: "break-word",
+                                                whiteSpace: "pre-wrap",
+                        boxShadow:
+                          "0 2px 8px rgba(0, 0, 0, 0.02)",
+                      }}
+                    >
+                      {msg.text}
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      maxWidth: "88%",
+                      padding: "10px 18px",
+                      borderRadius: "20px",
+                      background:
+                        "var(--rifat-user-msg-bg)",
+                      color: "var(--rifat-user-msg-text)",
+                      fontSize: "14px",
+                      lineHeight: 1.45,
+                      wordBreak: "break-word",
+                                                whiteSpace: "pre-wrap",
+                      boxShadow:
+                        "0 2px 8px rgba(56, 160, 216, 0.25)",
+                    }}
+                  >
+                    {msg.text}
+                  </div>
+                )}
+              </div>
+            ))}
 
-        <div
-          ref={magRef}
-          style={{
-            position: "relative",
-            width: 74,
-            height: 74,
-            willChange: "transform",
-          }}
-        >
-          {/* Spinning aurora glow */}
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              inset: -11,
-              borderRadius: "50%",
-              background: AURORA,
-              filter: "blur(15px)",
-              opacity: 0.85,
-              animation: isStatic
-                ? "none"
-                : "aura-spin 6s linear infinite, aura-glowpulse 4s ease-in-out infinite",
-            }}
-          />
-          {/* Breathing plasma orb */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              borderRadius: "50%",
-              animation: isStatic
-                ? "none"
-                : "aura-breathe 5s ease-in-out infinite",
-              willChange: "transform",
-            }}
-          >
+            {/* Typing Indicator */}
+            {isLoading && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  marginLeft: "40px",
+                }}
+              >
+                <div
+                  style={{
+                    padding: "10px 16px",
+                    borderRadius: "18px",
+                    background: "var(--rifat-bot-msg-bg)",
+                    border: "1px solid var(--rifat-bot-msg-border)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "5px",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "6px",
+                      height: "6px",
+                      borderRadius: "50%",
+                      background: "#38A0D8",
+                      animation:
+                        "rifat-dotPulse 1.4s infinite ease-in-out 0s",
+                    }}
+                  />
+                  <div
+                    style={{
+                      width: "6px",
+                      height: "6px",
+                      borderRadius: "50%",
+                      background: "#298ebd",
+                      animation:
+                        "rifat-dotPulse 1.4s infinite ease-in-out 0.2s",
+                    }}
+                  />
+                  <div
+                    style={{
+                      width: "6px",
+                      height: "6px",
+                      borderRadius: "50%",
+                      background: "#38A0D8",
+                      animation:
+                        "rifat-dotPulse 1.4s infinite ease-in-out 0.4s",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Question Carousel with Smooth Edge Mask Fade */}
+          {currentSuggestions.length > 0 && (
             <div
+              style={{ padding: "0 14px", position: "relative" }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                {/* Scroll Left Arrow Button */}
+                <button
+                  onClick={() => scrollByAmount("left")}
+                  title="Scroll left"
+                  aria-label="Scroll left"
+                  style={{
+                    background: "var(--rifat-chip-bg)",
+                    border: "1px solid var(--rifat-chip-border)",
+                    borderRadius: "50%",
+                    width: "28px",
+                    height: "28px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                    color: "var(--rifat-text-sub)",
+                    fontSize: "15px",
+                    boxShadow:
+                      "0 1px 3px rgba(0, 0, 0, 0.04)",
+                    transition: "all 0.2s ease",
+                    zIndex: 2,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor =
+                      "#38A0D8"
+                    e.currentTarget.style.color = "#38A0D8"
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor =
+                      "var(--rifat-chip-border)"
+                    e.currentTarget.style.color =
+                      "var(--rifat-text-sub)"
+                  }}
+                >
+                  ‹
+                </button>
+
+                {/* Masked Container with Linear Gradient Edge Fade */}
+                <div
+                  style={{
+                    flex: 1,
+                    position: "relative",
+                    overflow: "hidden",
+                    maskImage:
+                      "linear-gradient(to right, transparent 0px, black 16px, black calc(100% - 16px), transparent 100%)",
+                    WebkitMaskImage:
+                      "linear-gradient(to right, transparent 0px, black 16px, black calc(100% - 16px), transparent 100%)",
+                  }}
+                >
+                  <div
+                    ref={scrollContainerRef}
+                    className="rifat-ai-scroll-x"
+                    onMouseDown={handleCarouselMouseDown}
+                    onMouseMove={handleCarouselMouseMove}
+                    onMouseUp={handleCarouselMouseUpOrLeave}
+                    onMouseLeave={
+                      handleCarouselMouseUpOrLeave
+                    }
+                    style={{
+                      cursor: isDragging
+                        ? "grabbing"
+                        : "grab",
+                      userSelect: "none",
+                    }}
+                  >
+                    {currentSuggestions.map((chip, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          if (!hasDragged)
+                            sendMessage(chip)
+                        }}
+                        style={{
+                          flexShrink: 0,
+                          background:
+                            "var(--rifat-chip-bg)",
+                          border: "1px solid var(--rifat-chip-border)",
+                          color: "var(--rifat-chip-text)",
+                          padding: "8px 16px",
+                          borderRadius: "20px",
+                          fontSize: "13px",
+                          fontWeight: 400,
+                          cursor: isDragging
+                            ? "grabbing"
+                            : "pointer",
+                          whiteSpace: "nowrap",
+                          transition: "all 0.2s ease",
+                          boxShadow:
+                            "0 1px 3px rgba(0, 0, 0, 0.02)",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isDragging) {
+                            e.currentTarget.style.background =
+                              "var(--rifat-chip-hover-bg)"
+                            e.currentTarget.style.borderColor =
+                              "var(--rifat-chip-hover-border)"
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isDragging) {
+                            e.currentTarget.style.background =
+                              "var(--rifat-chip-bg)"
+                            e.currentTarget.style.borderColor =
+                              "var(--rifat-chip-border)"
+                          }
+                        }}
+                      >
+                        {chip}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Scroll Right Arrow Button */}
+                <button
+                  onClick={() => scrollByAmount("right")}
+                  title="Scroll right"
+                  aria-label="Scroll right"
+                  style={{
+                    background: "var(--rifat-chip-bg)",
+                    border: "1px solid var(--rifat-chip-border)",
+                    borderRadius: "50%",
+                    width: "28px",
+                    height: "28px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                    color: "var(--rifat-text-sub)",
+                    fontSize: "15px",
+                    boxShadow:
+                      "0 1px 3px rgba(0, 0, 0, 0.04)",
+                    transition: "all 0.2s ease",
+                    zIndex: 2,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor =
+                      "#38A0D8"
+                    e.currentTarget.style.color = "#38A0D8"
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor =
+                      "var(--rifat-chip-border)"
+                    e.currentTarget.style.color =
+                      "var(--rifat-text-sub)"
+                  }}
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Input Field Capsule */}
+          <div
+            style={{
+              padding: "10px 20px 18px 20px",
+            }}
+          >
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                sendMessage()
+              }}
               style={{
-                position: "absolute",
-                inset: 0,
-                borderRadius: "50%",
-                overflow: "hidden",
-                border: "1px solid rgba(255,255,255,0.28)",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "var(--rifat-input-bg)",
+                border: "1px solid var(--rifat-input-border)",
+                borderRadius: "9999px",
+                padding: "5px 6px 5px 18px",
                 boxShadow:
-                  "0 10px 30px -6px rgba(120,60,255,0.6), inset 0 1px 6px rgba(255,255,255,0.35)",
+                  "inset 0 1px 2px rgba(0, 0, 0, 0.02)",
               }}
             >
-              <canvas
-                ref={orbRef}
-                width={74}
-                height={74}
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask RIFAT Ai anything..."
+                aria-label="Ask RIFAT Ai anything..."
                 style={{
-                  width: 74,
-                  height: 74,
-                  display: "block",
+                  flex: 1,
+                  background: "transparent",
+                  border: "none",
+                  outline: "none",
+                  color: "var(--rifat-text-main)",
+                  fontSize: "14px",
                 }}
               />
-            </div>
+
+              {/* Paper Airplane Send Button in #38A0D8 */}
+              <button
+                type="submit"
+                disabled={!input.trim() || isLoading}
+                aria-label="Send message"
+                style={{
+                  background:
+                    input.trim() && !isLoading
+                      ? "var(--rifat-accent)"
+                      : "rgba(56, 160, 216, 0.8)",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: "36px",
+                  height: "36px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#ffffff",
+                  cursor:
+                    input.trim() && !isLoading
+                      ? "pointer"
+                      : "default",
+                  transition: "all 0.2s ease",
+                  flexShrink: 0,
+                  boxShadow:
+                    "0 2px 8px rgba(56, 160, 216, 0.3)",
+                }}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                </svg>
+              </button>
+            </form>
           </div>
         </div>
-      </button>
-    </div>
-  );
+      )}
 
-  if (!isCanvas && mounted && typeof document !== "undefined") {
-    return createPortal(content, document.body);
+      {/* Floating Launcher Button */}
+      <div
+        ref={launcherRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        onClick={() => setIsOpen((prev) => !prev)}
+        style={{
+          position: "relative",
+          width: "52px",
+          height: "52px",
+          cursor: "pointer",
+          transform: `translate3d(${mouseOffset.x}px, ${mouseOffset.y}px, 0)`,
+          transition:
+            mouseOffset.x === 0
+              ? "transform 0.4s ease-out"
+              : "none",
+          borderRadius: "50%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          animation: "rifat-pulseGlow 3s infinite ease-in-out",
+          background: "#ffffff",
+          border: "2px solid #ffffff",
+          boxShadow: "0 10px 30px rgba(148, 163, 184, 0.35)",
+        }}
+      >
+        <RifatAvatar src={avatarUrl} size={48} alt={assistantName} />
+      </div>
+    </div>
+  )
+
+  if (typeof document === "undefined") return null
+
+  if (RenderTarget.current() === RenderTarget.canvas) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          minWidth: "52px",
+          minHeight: "52px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {portalContent}
+      </div>
+    )
   }
 
-  return content;
+  return createPortal(portalContent, document.body)
 }
 
-// Default Framer Component Props
-RifatAIChat.defaultProps = {
-  assistantName: "RIFAT Ai",
-  greeting: "Hey, I'm Rifat!",
-  subtitle: "Ask me about my work, skills, projects, or how we can collaborate.",
-  statusLabel: "AI Assistant · online",
-  suggestions: [
-    { text: "What does Rifat do?" },
-    { text: "Show me Rifat's projects" },
-    { text: "What skills does Rifat have?" },
-    { text: "How can I work with Rifat?" },
-  ],
-  theme: "dark",
-  position: "right",
-  magnetism: 0.5,
-  speed: 1,
-  apiEndpoint: "/api/chat",
-};
-
-// Framer Desktop & Web Property Controls
-addPropertyControls(RifatAIChat, {
+addPropertyControls(RifatAI, {
   assistantName: {
     type: ControlType.String,
-    title: "Name",
+    title: "Assistant",
     defaultValue: "RIFAT Ai",
   },
   greeting: {
     type: ControlType.String,
     title: "Greeting",
-    placeholder: "Hi, I'm RIFAT Ai",
-    description: "Idle-state heading. Blank uses 'Hi, I'm <Name>'.",
+    defaultValue: "Hey, I'm Rifat!",
   },
   subtitle: {
     type: ControlType.String,
     title: "Subtitle",
-    displayTextArea: true,
-    defaultValue: "Ask me about Rifat, his work, projects, skills or how he can help.",
+    defaultValue: "Ask me about my work, skills, projects, or services.",
   },
   statusLabel: {
     type: ControlType.String,
     title: "Status",
-    defaultValue: "AI Assistant · online",
+    defaultValue: "Rifat • online",
+  },
+  avatarUrl: {
+    type: ControlType.Image,
+    title: "Avatar Photo",
+    defaultValue: DEFAULT_RIFAT_AVATAR,
   },
   suggestions: {
     type: ControlType.Array,
+    control: { type: ControlType.String },
     title: "Suggestions",
-    control: {
-      type: ControlType.Object,
-      controls: {
-        text: { type: ControlType.String, defaultValue: "Ask me..." },
-      },
-    },
-    defaultValue: [
-      { text: "What does Rifat do?" },
-      { text: "Show me Rifat's projects" },
-      { text: "What skills does Rifat have?" },
-      { text: "How can I work with Rifat?" },
-    ],
+    defaultValue: DEFAULT_SUGGESTIONS,
+  },
+  hideFramerBadge: {
+    type: ControlType.Boolean,
+    title: "Hide Framer Badge",
+    defaultValue: true,
+  },
+  bottomOffset: {
+    type: ControlType.Number,
+    title: "Bottom Offset (px)",
+    min: 10,
+    max: 200,
+    step: 2,
+    defaultValue: 32,
   },
   theme: {
     type: ControlType.Enum,
     title: "Theme",
-    options: ["dark", "light"],
-    optionTitles: ["Dark", "Light"],
-    displaySegmentedControl: true,
-    defaultValue: "dark",
+    options: ["light", "dark"],
+    optionTitles: ["Light Mode (Default)", "Dark Mode"],
+    defaultValue: "light",
   },
   position: {
     type: ControlType.Enum,
     title: "Position",
-    options: ["right", "left"],
-    optionTitles: ["Right", "Left"],
-    displaySegmentedControl: true,
-    defaultValue: "right",
+    options: ["bottom-right", "bottom-left"],
+    optionTitles: ["Bottom Right", "Bottom Left"],
+    defaultValue: "bottom-right",
   },
   magnetism: {
     type: ControlType.Number,
@@ -1135,23 +1130,6 @@ addPropertyControls(RifatAIChat, {
     min: 0,
     max: 1,
     step: 0.05,
-    defaultValue: 0.5,
-    description: "How strongly the orb leans toward the cursor.",
+    defaultValue: 0.35,
   },
-  speed: {
-    type: ControlType.Number,
-    title: "Speed",
-    min: 0.3,
-    max: 2,
-    step: 0.1,
-    unit: "x",
-    defaultValue: 1,
-    description: "Animation speed of the orb and waveform.",
-  },
-  apiEndpoint: {
-    type: ControlType.String,
-    title: "API Endpoint",
-    defaultValue: "/api/chat",
-    description: "Backend URL endpoint processing chat requests.",
-  },
-});
+})
