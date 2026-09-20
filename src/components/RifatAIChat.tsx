@@ -30,6 +30,7 @@ const CSS = `
 .aura-send:disabled { opacity: 0.5; cursor: not-allowed !important; }
 .aura-launcher .aura-lbl { transition: opacity .3s ease, transform .3s ease; }
 .aura-launcher:hover .aura-lbl { opacity: 1 !important; transform: translateY(-50%) translateX(0) !important; }
+.aura-scroll { overscroll-behavior: contain !important; overscroll-behavior-y: contain !important; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
 .aura-scroll::-webkit-scrollbar { width: 6px; }
 .aura-scroll::-webkit-scrollbar-thumb { background: var(--aura-glass-brd2); border-radius: 3px; }
 `;
@@ -193,6 +194,7 @@ export default function RifatAIChat(props: RifatAIChatProps) {
   const waveRef = React.useRef<HTMLCanvasElement | null>(null);
   const magRef = React.useRef<HTMLDivElement | null>(null);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
+  const panelRef = React.useRef<HTMLDivElement | null>(null);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   const magnetismRef = React.useRef(magnetism);
@@ -270,6 +272,43 @@ export default function RifatAIChat(props: RifatAIChatProps) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, typing]);
+
+  
+  // Prevent wheel scroll event chaining from chat panel to host window/body
+  React.useEffect(() => {
+    const panelEl = panelRef.current;
+    const scrollEl = scrollRef.current;
+    if (!panelEl || !open) return;
+
+    const handlePanelWheel = (e: WheelEvent) => {
+      e.stopPropagation();
+
+      if (scrollEl && scrollEl.contains(e.target as Node)) {
+        const { scrollTop, scrollHeight, clientHeight } = scrollEl;
+        const delta = e.deltaY;
+        const isUp = delta < 0;
+        const isDown = delta > 0;
+
+        if ((isUp && scrollTop <= 0) || (isDown && scrollTop + clientHeight >= scrollHeight - 1)) {
+          e.preventDefault();
+        }
+      } else {
+        e.preventDefault();
+      }
+    };
+
+    const handlePanelTouchMove = (e: TouchEvent) => {
+      e.stopPropagation();
+    };
+
+    panelEl.addEventListener("wheel", handlePanelWheel, { passive: false });
+    panelEl.addEventListener("touchmove", handlePanelTouchMove, { passive: true });
+
+    return () => {
+      panelEl.removeEventListener("wheel", handlePanelWheel);
+      panelEl.removeEventListener("touchmove", handlePanelTouchMove);
+    };
+  }, [open]);
 
   // Focus the input shortly after the panel finishes opening.
   React.useEffect(() => {
